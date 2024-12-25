@@ -78,6 +78,7 @@ def refine(strategy_name: str, csv_path: str) -> None:
         'fee': cfg['backtest-data']['fee'],
         'futures_leverage': cfg['backtest-data']['futures_leverage'],
         'futures_leverage_mode': cfg['backtest-data']['futures_leverage_mode'],
+        'type': 'futures',
         'exchange': cfg['backtest-data']['exchange'],
         'settlement_currency': cfg['backtest-data']['settlement_currency'],
         'warm_up_candles': cfg['backtest-data']['warm_up_candles']
@@ -95,40 +96,68 @@ def refine(strategy_name: str, csv_path: str) -> None:
         for timeframe in cfg['backtest-data']['timeframes']:
             for timespan in cfg['backtest-data']['timespans'].items():
                 timespan = timespan[1]
-                candles = {}
+                trading_candles = {}
+                warmup_candles = {}
                 extra_routes = []
                 if len(cfg['backtest-data']['extra_routes']) != 0:
                     for extra_route in cfg['backtest-data']['extra_routes'].items():
                         extra_route = extra_route[1]
-                        candles[jh.key(extra_route['exchange'], extra_route['symbol'])] = {
+                        wu_candles, candles = get_candles(
+                                                    extra_route['exchange'],
+                                                    extra_route['symbol'],
+                                                    extra_route['timeframe'],
+                                                    jh.date_to_timestamp(timespan['start_date']),
+                                                    jh.date_to_timestamp(timespan['finish_date']),
+                                                    cfg['backtest-data']['warm_up_candles'],
+                                                    True,
+                                                    True
+                                                )
+
+                        trading_candles[jh.key(extra_route['exchange'], extra_route['symbol'])] = {
                             'exchange': extra_route['exchange'],
                             'symbol': extra_route['symbol'],
-                            'candles': get_candles_with_cache(
-                                extra_route['exchange'],
-                                extra_route['symbol'],
-                                timespan['start_date'],
-                                timespan['finish_date'],
-                            ),
+                            'candles': candles,
                         }
+
+                        warmup_candles[jh.key(extra_route['exchange'], extra_route['symbol'])] = {
+                            'exchange': extra_route['exchange'],
+                            'symbol': extra_route['symbol'],
+                            'candles': wu_candles,
+                        }
+
                         extra_routes.append({'exchange': extra_route['exchange'], 'symbol': extra_route['symbol'],
                                              'timeframe': extra_route['timeframe']})
-                candles[jh.key(cfg['backtest-data']['exchange'], symbol)] = {
+                
+                wu_candles, candles = get_candles(
+                                                cfg['backtest-data']['exchange'],
+                                                symbol,
+                                                timeframe,
+                                                jh.date_to_timestamp(timespan['start_date']),
+                                                jh.date_to_timestamp(timespan['finish_date']),
+                                                cfg['backtest-data']['warm_up_candles'],
+                                                True,
+                                                True
+                                            )
+
+                
+                trading_candles[jh.key(cfg['backtest-data']['exchange'], symbol)] = {
                     'exchange': cfg['backtest-data']['exchange'],
                     'symbol': symbol,
-                    'candles': get_candles_with_cache(
-                        cfg['backtest-data']['exchange'],
-                        symbol,
-                        timespan['start_date'],
-                        timespan['finish_date'],
-                    ),
+                    'candles': candles,
+                }
+
+                warmup_candles[jh.key(cfg['backtest-data']['exchange'], symbol)] = {
+                    'exchange': cfg['backtest-data']['exchange'],
+                    'symbol': symbol,
+                    'candles': wu_candles,
                 }
 
                 route = [{'exchange': cfg['backtest-data']['exchange'], 'strategy': strategy_name, 'symbol': symbol,
                           'timeframe': timeframe}]
 
-                for dna in dna_df['dna']:
-                    key = f'{symbol}-{timeframe}-{timespan["start_date"]}-{timespan["finish_date"]}-{dna}'
-                    mp_args.append((key, config, route, extra_routes, candles, hp_dict, dna))
+                for row in dna_df[['dna', 'fitness']].itertuples(index=False):
+                    key = f'{symbol}-{timeframe}-{timespan["start_date"]}-{timespan["finish_date"]}-{row.dna}'
+                    mp_args.append((key, config, route, extra_routes, trading_candles, warmup_candles, hp_dict, row.dna, row.fitness))
 
     n_jobs = joblib.cpu_count() if cfg['n_jobs'] == -1 else cfg['n_jobs']
 
@@ -158,6 +187,7 @@ def bulk(strategy_name: str) -> None:
         'fee': cfg['backtest-data']['fee'],
         'futures_leverage': cfg['backtest-data']['futures_leverage'],
         'futures_leverage_mode': cfg['backtest-data']['futures_leverage_mode'],
+        'type': 'futures',
         'exchange': cfg['backtest-data']['exchange'],
         'settlement_currency': cfg['backtest-data']['settlement_currency'],
         'warm_up_candles': cfg['backtest-data']['warm_up_candles']
@@ -175,32 +205,61 @@ def bulk(strategy_name: str) -> None:
         for timeframe in cfg['backtest-data']['timeframes']:
             for timespan in cfg['backtest-data']['timespans'].items():
                 timespan = timespan[1]
-                candles = {}
+                trading_candles = {}
+                warmup_candles = {}
                 extra_routes = []
                 if len(cfg['backtest-data']['extra_routes']) != 0:
                     for extra_route in cfg['backtest-data']['extra_routes'].items():
                         extra_route = extra_route[1]
-                        candles[jh.key(extra_route['exchange'], extra_route['symbol'])] = {
+                        
+                        wu_candles, candles = get_candles(
+                                                    extra_route['exchange'],
+                                                    extra_route['symbol'],
+                                                    extra_route['timeframe'],
+                                                    jh.date_to_timestamp(timespan['start_date']),
+                                                    jh.date_to_timestamp(timespan['finish_date']),
+                                                    cfg['backtest-data']['warm_up_candles'],
+                                                    True,
+                                                    True
+                                                )
+
+                        trading_candles[jh.key(extra_route['exchange'], extra_route['symbol'])] = {
                             'exchange': extra_route['exchange'],
                             'symbol': extra_route['symbol'],
-                            'candles': get_candles_with_cache(
-                                extra_route['exchange'],
-                                extra_route['symbol'],
-                                timespan['start_date'],
-                                timespan['finish_date'],
-                            ),
+                            'candles': candles,
                         }
+
+                        warmup_candles[jh.key(extra_route['exchange'], extra_route['symbol'])] = {
+                            'exchange': extra_route['exchange'],
+                            'symbol': extra_route['symbol'],
+                            'candles': wu_candles,
+                        }
+
                         extra_routes.append({'exchange': extra_route['exchange'], 'symbol': extra_route['symbol'],
                                              'timeframe': extra_route['timeframe']})
-                candles[jh.key(cfg['backtest-data']['exchange'], symbol)] = {
+                        
+                wu_candles, candles = get_candles(
+                                                cfg['backtest-data']['exchange'],
+                                                symbol,
+                                                timeframe,
+                                                jh.date_to_timestamp(timespan['start_date']),
+                                                jh.date_to_timestamp(timespan['finish_date']),
+                                                cfg['backtest-data']['warm_up_candles'],
+                                                True,
+                                                True
+                                            )
+
+                
+                trading_candles[jh.key(cfg['backtest-data']['exchange'], symbol)] = {
                     'exchange': cfg['backtest-data']['exchange'],
                     'symbol': symbol,
-                    'candles': get_candles_with_cache(
-                        cfg['backtest-data']['exchange'],
-                        symbol,
-                        timespan['start_date'],
-                        timespan['finish_date'],
-                    ),
+                    'candles': candles,
+                }
+
+                warmup_candles[jh.key(cfg['backtest-data']['exchange'], symbol)] = {
+                    'exchange': cfg['backtest-data']['exchange'],
+                    'symbol': symbol,
+                    'candles': wu_candles,
                 }
 
                 route = [{'exchange': cfg['backtest-data']['exchange'], 'strategy': strategy_name, 'symbol': symbol,
@@ -208,7 +267,7 @@ def bulk(strategy_name: str) -> None:
 
                 key = f'{symbol}-{timeframe}-{timespan["start_date"]}-{timespan["finish_date"]}'
 
-                mp_args.append((key, config, route, extra_routes, candles, None, None))
+                mp_args.append((key, config, route, extra_routes, trading_candles, warmup_candles, None, None, None))
 
     n_jobs = joblib.cpu_count() if cfg['n_jobs'] == -1 else cfg['n_jobs']
 
@@ -238,9 +297,12 @@ def validate_cwd() -> None:
         exit()
 
 
-def get_candles_with_cache(exchange: str, symbol: str, start_date: str, finish_date: str) -> np.ndarray:
+def get_candles_with_cache(exchange: str, symbol: str, start_date: str, finish_date: str, warmup_candles_num: int) -> np.ndarray:
     path = pathlib.Path('storage/bulk')
     path.mkdir(parents=True, exist_ok=True)
+
+    start_date_timestamp = jh.date_to_timestamp(start_date)
+    finish_date_timestamp = jh.date_to_timestamp(finish_date)
 
     cache_file_name = f"{exchange}-{symbol}-1m-{start_date}-{finish_date}.pickle"
     cache_file = pathlib.Path(f'storage/bulk/{cache_file_name}')
@@ -249,20 +311,20 @@ def get_candles_with_cache(exchange: str, symbol: str, start_date: str, finish_d
         with open(f'storage/bulk/{cache_file_name}', 'rb') as handle:
             candles = pickle.load(handle)
     else:
-        candles = get_candles(exchange, symbol, '1m', start_date, finish_date)
+        candles = get_candles(exchange, symbol, '1m', start_date_timestamp, finish_date_timestamp, warmup_candles_num=warmup_candles_num)
         with open(f'storage/bulk/{cache_file_name}', 'wb') as handle:
             pickle.dump(candles, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     return candles
 
 
-def backtest_with_info_key(key, config, route, extra_routes, candles, hp_dict, dna):
+def backtest_with_info_key(key, config, route, extra_routes, candles, warmup_candles, hp_dict, dna, fitness):
     hp = jh.dna_to_hp(hp_dict, dna) if dna else None
 
     got_exception = False
 
     try:
-        backtest_data = backtest(config, route, extra_routes, candles, hyperparameters = hp)['metrics']
+        backtest_data = backtest(config, route, extra_routes, candles, warmup_candles, fast_mode=True, hyperparameters = hp)['metrics']
     except Exception as e:
         logger = start_logger_if_necessary()
         logger.error("".join(traceback.TracebackException.from_exception(e).format()), extra={'key': key})
@@ -287,7 +349,9 @@ def backtest_with_info_key(key, config, route, extra_routes, candles, hp_dict, d
         if got_exception:
             backtest_data['total'] = "error"
 
-    return {**{'key': key}, **backtest_data}
+    return {**{'key': key,
+               'dna': dna,
+               'optim_fitness': fitness}, **backtest_data}
 
 
 def get_config():
