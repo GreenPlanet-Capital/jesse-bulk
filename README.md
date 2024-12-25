@@ -1,5 +1,7 @@
 # Jesse bulk backtest
 
+This is a fork of cryptocoinserver/jesse-bulk. Changes are made to make this compatible with jesse version 1.4.0
+
 `jesse-bulk pick`
 Loads a CSV you got from Jesse's optimization. Removes duplicates and filteres it according to your config.
 
@@ -28,7 +30,7 @@ This could be improved.
 
 ```sh
 # install from git
-pip install git+https://github.com/cryptocoinserver/jesse-bulk.git
+pip install git+https://github.com/siglun88/jesse-bulk.git
 
 # cd in your Jesse project directory
 
