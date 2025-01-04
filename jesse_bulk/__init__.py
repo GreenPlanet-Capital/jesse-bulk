@@ -45,12 +45,20 @@ def create_config() -> None:
 
 @cli.command()
 @click.argument('csv_path', required=True, type=str)
-def pick(csv_path: str) -> None:
+@click.argument('limit', required=True, type=int)
+def pick(csv_path: str, limit: int) -> None:
     from .picker import filter_and_sort_dna_df
 
     cfg = get_config()
 
-    filter_and_sort_dna_df(csv_path, cfg)
+    filter_and_sort_dna_df(csv_path, cfg, limit)
+
+@cli.command()
+@click.argument('csv_path', required=True, type=str)
+def results(csv_path: str) -> None:
+    from .picker import pprint_results
+
+    pprint_results(csv_path)
 
 
 @cli.command()
@@ -78,7 +86,7 @@ def refine(strategy_name: str, csv_path: str) -> None:
         'fee': cfg['backtest-data']['fee'],
         'futures_leverage': cfg['backtest-data']['futures_leverage'],
         'futures_leverage_mode': cfg['backtest-data']['futures_leverage_mode'],
-        'type': 'futures',
+        'type': cfg['backtest-data']['type'],
         'exchange': cfg['backtest-data']['exchange'],
         'settlement_currency': cfg['backtest-data']['settlement_currency'],
         'warm_up_candles': cfg['backtest-data']['warm_up_candles']
@@ -187,7 +195,7 @@ def bulk(strategy_name: str) -> None:
         'fee': cfg['backtest-data']['fee'],
         'futures_leverage': cfg['backtest-data']['futures_leverage'],
         'futures_leverage_mode': cfg['backtest-data']['futures_leverage_mode'],
-        'type': 'futures',
+        'type': cfg['backtest-data']['type'],
         'exchange': cfg['backtest-data']['exchange'],
         'settlement_currency': cfg['backtest-data']['settlement_currency'],
         'warm_up_candles': cfg['backtest-data']['warm_up_candles']
